@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { io } from 'socket.io-client';
 import confetti from 'canvas-confetti';
-import { Flame, EyeOff, AlertCircle, LogOut, Beer, CheckCircle, XCircle, ShieldAlert } from 'lucide-react';
+import { Flame, EyeOff, AlertCircle, LogOut, Beer, CheckCircle, XCircle, ShieldAlert, ScrollText } from 'lucide-react';
 
 import Card from './components/Card';
 import Scoreboard from './components/Scoreboard';
 import TrucoModal from './components/TrucoModal';
 import Lobby from './components/Lobby';
+import ChatBox from './components/ChatBox';
 import { sounds } from './utils/soundEffects';
 
 const SOCKET_SERVER_URL = import.meta.env.VITE_SERVER_URL || window.location.origin;
@@ -190,9 +191,9 @@ export default function App() {
   const opponents = roomState.players.filter(p => p.team !== currentPlayer?.team);
 
   return (
-    <div className="flex flex-col min-h-screen boteco-bg select-none overflow-hidden text-slate-100">
+    <div className="flex flex-col min-h-screen boteco-bg select-none overflow-hidden text-slate-100 relative">
       
-      {/* Placar estilo Lousa de Bar */}
+      {/* Placar em Lousa de Giz de Bar */}
       <Scoreboard
         roomState={roomState}
         currentPlayer={currentPlayer}
@@ -208,7 +209,32 @@ export default function App() {
         </div>
       )}
 
-      {/* ÁREA DA MESA REDONDA DE BOTECO */}
+      {/* LOUSA DE REGISTRO DA PARTIDA (POSICIONADA NO TOPO ESQUERDO) */}
+      <aside className="fixed top-16 left-3 z-30 w-64 md:w-72 lousa-boteco rounded-2xl p-3 shadow-2xl hidden md:block border-2 border-amber-800/80">
+        <div className="text-[11px] font-mono font-bold text-amber-400 uppercase tracking-wider mb-1.5 flex items-center justify-between border-b border-slate-800 pb-1">
+          <span className="flex items-center gap-1.5"><ScrollText className="w-3.5 h-3.5" /> Lousa de Registro</span>
+          <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+        </div>
+        <div className="h-32 overflow-y-auto space-y-1 text-[11px]">
+          {logs.map(l => (
+            <div key={l.id} className="text-slate-300 leading-tight">
+              <span className="text-slate-500 text-[9px] font-mono mr-1">[{l.time}]</span>
+              {l.text}
+            </div>
+          ))}
+          <div ref={logEndRef} />
+        </div>
+      </aside>
+
+      {/* CHAT DE TEXTO E VOZ WEBRTC (POSICIONADO NO CANTO INFERIOR DIREITO) */}
+      <ChatBox
+        socket={socket}
+        roomId={roomState.roomId}
+        currentPlayer={currentPlayer}
+        roomState={roomState}
+      />
+
+      {/* ÁREA DA MESA REDONDA DE MADEIRA DE BOTECO */}
       <main className="flex-1 flex flex-col justify-between items-center p-4 max-w-5xl mx-auto w-full relative">
         
         {/* OPONENTES (NORTE DA MESA REDONDA) */}
@@ -231,10 +257,10 @@ export default function App() {
           ))}
         </div>
 
-        {/* ESTRUTURA DA MESA REDONDA CIRCULAR */}
+        {/* ESTRUTURA CIRCULAR DA MESA DE MADEIRA MOGNO DE BOTECO */}
         <div className="my-auto relative w-[320px] h-[320px] sm:w-[420px] sm:h-[420px] md:w-[480px] md:h-[480px] round-table-boteco flex flex-col items-center justify-center p-4">
           
-          {/* ADESIVO DO PATROCINADOR (MARIA LANCHES) COLADO NA MESA DE BOTECO */}
+          {/* ADESIVO DO PATROCINADOR (MARIA LANCHES) COLADO NA MESA */}
           <div 
             onClick={() => triggerNotification('🍔 Maria Lanches: O melhor lanche do Boteco!')}
             className="absolute -top-6 -right-6 md:-top-8 md:-right-8 z-30 sponsor-sticker p-1.5 cursor-pointer flex flex-col items-center select-none"
@@ -250,8 +276,8 @@ export default function App() {
             </span>
           </div>
 
-          {/* VIRA E MANILHA DE BOTECO */}
-          <div className="flex items-center gap-3 bg-slate-950/80 p-2.5 rounded-2xl border border-amber-500/40 shadow-2xl z-10 mb-2">
+          {/* VIRA E MANILHA */}
+          <div className="flex items-center gap-3 bg-slate-950/85 p-2.5 rounded-2xl border border-amber-500/40 shadow-2xl z-10 mb-2">
             <div className="flex flex-col items-center">
               <span className="text-[10px] text-amber-400 font-mono font-bold tracking-wider uppercase">VIRA</span>
               <Card card={hand?.vira} isVira isSmall disabled />
@@ -389,23 +415,6 @@ export default function App() {
           </div>
         </div>
       )}
-
-      {/* HISTÓRICO DE MENSAGENS / LOUSA DO BOTECO */}
-      <aside className="fixed bottom-3 right-3 z-30 w-72 md:w-80 lousa-boteco rounded-xl p-3 shadow-2xl hidden sm:block">
-        <div className="text-[11px] font-bold text-amber-400 uppercase tracking-wider mb-2 flex items-center justify-between border-b border-slate-800 pb-1">
-          <span>Lousa de Registro</span>
-          <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-        </div>
-        <div className="h-28 overflow-y-auto space-y-1 text-xs">
-          {logs.map(l => (
-            <div key={l.id} className="text-slate-300 leading-tight">
-              <span className="text-slate-500 text-[10px] mr-1">[{l.time}]</span>
-              {l.text}
-            </div>
-          ))}
-          <div ref={logEndRef} />
-        </div>
-      </aside>
 
       {/* MODAL DE TRUCO */}
       <TrucoModal

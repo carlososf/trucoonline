@@ -38,7 +38,7 @@ function getManilhaValue(viraValue) {
 }
 
 function getCardStrength(card, viraValue, isHidden) {
-  if (!card || isHidden) return -999; // Carta coberta perde para qualquer carta normal
+  if (!card || isHidden) return -999;
   const manilhaValue = getManilhaValue(viraValue);
   
   if (card.value === manilhaValue) {
@@ -114,7 +114,6 @@ function sanitizeRoomState(room, requestingPlayerId) {
     const isSelf = p.playerId === requestingPlayerId;
     const isPartner = requestingPlayer && p.team === requestingPlayer.team;
     
-    // Na Mão de 11, parceiros de time enxergam as cartas um do outro!
     const canSeeHand = isSelf || (isMao11 && isPartner && !isMaoFerro);
 
     return {
@@ -122,6 +121,7 @@ function sanitizeRoomState(room, requestingPlayerId) {
       name: p.name,
       team: p.team,
       connected: p.connected,
+      socketId: p.socketId,
       cardCount: p.hand ? p.hand.length : 0,
       hand: canSeeHand ? p.hand : p.hand ? p.hand.map(() => ({ id: 'BACK', hidden: true })) : []
     };
@@ -187,7 +187,6 @@ function startNewHand(room) {
   room.starterPlayerIndex = actualStarterIdx;
   const starterPlayer = room.players[actualStarterIdx];
 
-  // Verificar Mão de 11 e Mão de Ferro
   const t1 = room.scores.team1;
   const t2 = room.scores.team2;
   const isMao11 = t1 === 11 || t2 === 11;
@@ -250,7 +249,6 @@ function checkHandWinner(room) {
     else if (team2Wins > team1Wins) winningTeam = 2;
   }
 
-  // Regras de Canga (Empate nas rodadas)
   if (!winningTeam) {
     if (rounds.length === 2) {
       if (rounds[0].winnerTeam === 'TIE' && rounds[1].winnerTeam !== 'TIE') winningTeam = rounds[1].winnerTeam;
@@ -328,6 +326,7 @@ function evaluateRound(room) {
 }
 
 io.on('connection', (socket) => {
+  // --- SALAS & JOGO ---
   socket.on('createRoom', ({ name, maxPlayers = 2 }, callback) => {
     const roomId = generateRoomCode();
     const playerId = `p_${Math.random().toString(36).substring(2, 9)}`;
@@ -377,7 +376,6 @@ io.on('connection', (socket) => {
     broadcastRoomState(roomId);
   });
 
-  // Decisão Mão de 11 (Jogar por 3 pts ou Correr perdendo 1 pt)
   socket.on('decideMao11', ({ roomId, playerId, accept }) => {
     const room = rooms[roomId];
     if (!room || room.status !== 'MAO_11_DECISION') return;
@@ -391,7 +389,6 @@ io.on('connection', (socket) => {
       hand.lastActionMsg = `👍 Time ${player.team} aceitou a MÃO DE 11! A mão vale 3 pontos.`;
       broadcastRoomState(roomId);
     } else {
-      // Correr na mão de 11 concede 1 ponto ao oponente
       const opposingTeam = player.team === 1 ? 2 : 1;
       if (opposingTeam === 1) room.scores.team1 += 1;
       else room.scores.team2 += 1;
@@ -402,9 +399,9 @@ io.on('connection', (socket) => {
         room.status = 'GAME_OVER';
         room.winnerTeam = room.scores.team1 >= 12 ? 1 : 2;
         hand.lastActionMsg = `🏆 FIM DE JOGO! Time ${room.winnerTeam} é o campeão do Boteco!`;
-        broadcastRoomState(roomId);
+        broadcastRoomState(room.roomId);
       } else {
-        setTimeout(() => { startNewHand(room); broadcastRoomState(roomId); }, 2500);
+        setTimeout(() => { startNewHand(room); broadcastRoomState(room.roomId); }, 2500);
       }
     }
   });
@@ -442,7 +439,7 @@ io.on('connection', (socket) => {
     const room = rooms[roomId];
     if (!room || room.status !== 'PLAYING') return;
     const hand = room.currentHand;
-    if (!hand || hand.isMao11 || hand.turnPlayerId !== playerId || hand.trucoState.status === 'PENDING') return; // Truco bloqueado na Mão de 11
+    if (!hand || hand.isMao11 || hand.turnPlayerId !== playerId || hand.trucoState.status === 'PENDING') return;
 
     const player = room.players.find(p => p.playerId === playerId);
     if (!player || hand.trucoState.lastTrucoTeam === player.team) return;
@@ -516,6 +513,38 @@ io.on('connection', (socket) => {
     hand.lastActionMsg = `🔥 ${player.name} RETRCOU E PEDIU ${nextLevel}!`;
 
     broadcastRoomState(roomId);
+  });
+
+  // --- CHAT DE TEXTO ---
+  socket.on('sendChatMessage', ({ roomId, playerId, text }) => {
+    const room = rooms[roomId];
+    if (!room || !text || !text.trim()) return;
+
+    const player = room.players.find(p => p.playerId === playerId);
+    if (!player) return;
+
+    const chatPayload = {
+      id: Date.now() + Math.random().toString(),
+      senderName: player.name,
+      team: player.team,
+      text: text.trim().substring(0, 150),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    io.to(roomId).emit('chatMessage', chatPayload);
+  });
+
+  // --- SINALIZAÇÃO WEBRTC PARA CHAT DE VOZ ---
+  socket.on('voiceOffer', ({ targetSocketId, offer, senderPlayerId }) => {
+    io.to(targetSocketId).emit('voiceOffer', { offer, senderSocketId: socket.id, senderPlayerId });
+  });
+
+  socket.on('voiceAnswer', ({ targetSocketId, answer }) => {
+    io.to(targetSocketId).emit('voiceAnswer', { answer, senderSocketId: socket.id });
+  });
+
+  socket.on('voiceCandidate', ({ targetSocketId, candidate }) => {
+    io.to(targetSocketId).emit('voiceCandidate', { candidate, senderSocketId: socket.id });
   });
 
   socket.on('reconnectPlayer', ({ roomId, playerId }, callback) => {
