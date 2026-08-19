@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <circle cx="60" cy="60" r="58" fill="#451a03" stroke="#d4a853" stroke-width="3"/>
+  <!-- Rostinho Caipira Bigodudo -->
+  <circle cx="60" cy="62" r="32" fill="#fbbf24"/>
+  <!-- Olhos -->
+  <ellipse cx="48" cy="58" rx="4" ry="4" fill="#1e293b"/>
+  <ellipse cx="72" cy="58" rx="4" ry="4" fill="#1e293b"/>
+  <!-- Bigodão Caipira -->
+  <path d="M42 72 Q60 68 60 74 Q60 68 78 72 Q82 80 60 78 Q38 80 42 72 Z" fill="#451a03"/>
+  <!-- Chapéu de Palha Trançado -->
+  <ellipse cx="60" cy="40" rx="54" ry="13" fill="#b45309" stroke="#451a03" stroke-width="3"/>
+  <path d="M34 40 C34 16, 86 16, 86 40 Z" fill="#d97706" stroke="#451a03" stroke-width="3"/>
+  <path d="M34 38 Q60 43 86 38" stroke="#166534" stroke-width="4" fill="none"/>
+  <!-- Camisa Xadrez Verde -->
+  <path d="M30 94 Q60 88 90 94 L96 118 L24 118 Z" fill="#15803d"/>
+  <path d="M30 94 Q60 88 90 94 L96 118 L24 118 Z" fill="none" stroke="#fef08a" stroke-width="2" stroke-dasharray="4,4"/>
+</svg>

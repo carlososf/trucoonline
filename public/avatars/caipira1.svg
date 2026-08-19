@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <circle cx="60" cy="60" r="58" fill="#5c3a21" stroke="#d4a853" stroke-width="3"/>
+  <!-- Rostinho Caipira -->
+  <circle cx="60" cy="62" r="32" fill="#fcd34d"/>
+  <!-- Olhos -->
+  <ellipse cx="48" cy="58" rx="4" ry="5" fill="#1e293b"/>
+  <ellipse cx="72" cy="58" rx="4" ry="5" fill="#1e293b"/>
+  <circle cx="46" cy="56" r="1.5" fill="#fff"/>
+  <circle cx="70" cy="56" r="1.5" fill="#fff"/>
+  <!-- Sobrancelhas caipiras -->
+  <path d="M42 50 Q48 46 54 51" stroke="#451a03" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M66 51 Q72 46 78 50" stroke="#451a03" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <!-- Nariz de caipira -->
+  <path d="M60 58 Q64 66 58 68" stroke="#b45309" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <!-- Sorriso com dente falhado -->
+  <path d="M48 76 Q60 86 72 76" stroke="#451a03" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <rect x="58" y="76" width="4" height="4" fill="#451a03"/>
+  <!-- Palha na boca -->
+  <path d="M64 78 Q82 82 92 72" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <!-- Camisa Xadrez -->
+  <path d="M30 94 Q60 88 90 94 L96 118 L24 118 Z" fill="#dc2626"/>
+  <path d="M30 94 Q60 88 90 94 L96 118 L24 118 Z" fill="none" stroke="#fef08a" stroke-width="2" stroke-dasharray="4,4"/>
+  <!-- Chapéu de Palha -->
+  <ellipse cx="60" cy="40" rx="52" ry="12" fill="#d97706" stroke="#78350f" stroke-width="3"/>
+  <path d="M36 40 C36 18, 84 18, 84 40 Z" fill="#f59e0b" stroke="#78350f" stroke-width="3"/>
+  <path d="M36 38 Q60 42 84 38" stroke="#dc2626" stroke-width="4" fill="none"/>
+</svg>

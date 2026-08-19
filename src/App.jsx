@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { io } from 'socket.io-client';
 import confetti from 'canvas-confetti';
-import { Flame, EyeOff, AlertCircle, LogOut, Beer, CheckCircle, XCircle, ShieldAlert, ScrollText } from 'lucide-react';
+import { Flame, EyeOff, AlertCircle, LogOut, Beer, CheckCircle, XCircle, ShieldAlert, ScrollText, Sparkles } from 'lucide-react';
 
 import Card from './components/Card';
 import Scoreboard from './components/Scoreboard';
 import TrucoModal from './components/TrucoModal';
 import Lobby from './components/Lobby';
 import ChatBox from './components/ChatBox';
+import SignalPanel from './components/SignalPanel';
 import { sounds } from './utils/soundEffects';
 
 const SOCKET_SERVER_URL = import.meta.env.VITE_SERVER_URL || window.location.origin;
@@ -20,6 +21,7 @@ export default function App() {
   const [isCovered, setIsCovered] = useState(false);
   const [notification, setNotification] = useState(null);
   const [isMuted, setIsMuted] = useState(false);
+  const [activePartnerSignal, setActivePartnerSignal] = useState(null);
 
   const logEndRef = useRef(null);
 
@@ -37,7 +39,7 @@ export default function App() {
             setRoomState(res.roomState);
             const p = res.roomState.players.find(x => x.playerId === savedPlayerId);
             if (p) setCurrentPlayer(p);
-            addLog('Sua conexão com o Boteco foi restaurada!');
+            addLog('Sua conexão com a mesa caipira foi restaurada!');
           } else {
             localStorage.removeItem('truco_roomId');
             localStorage.removeItem('truco_playerId');
@@ -60,8 +62,15 @@ export default function App() {
 
       if (updatedState?.status === 'GAME_OVER' && updatedState.winnerTeam) {
         sounds.playWin();
-        confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+        confetti({ particleCount: 160, spread: 100, origin: { y: 0.6 } });
       }
+    });
+
+    // Escutar Sinais Secretos de Parceiros
+    newSocket.on('partnerSignalReceived', ({ senderPlayerId, senderName, signal }) => {
+      setActivePartnerSignal({ senderPlayerId, senderName, signal });
+      triggerNotification(`🤫 Sinal Secreto do parceiro (${senderName}): ${signal.emoji} ${signal.name}`);
+      setTimeout(() => setActivePartnerSignal(null), 4000);
     });
 
     return () => newSocket.disconnect();
@@ -84,7 +93,7 @@ export default function App() {
         localStorage.setItem('truco_roomId', res.roomId);
         localStorage.setItem('truco_playerId', res.playerId);
         setCurrentPlayer(res.player);
-        addLog(`Mesa ${res.roomId} criada com sucesso no Boteco por ${name}!`);
+        addLog(`Mesa ${res.roomId} criada com sucesso por ${name}!`);
       }
     });
   };
@@ -99,7 +108,7 @@ export default function App() {
         setCurrentPlayer(res.player);
         addLog(`${name} sentou na mesa ${res.roomId}!`);
       } else {
-        alert(res?.message || 'Erro ao entrar na mesa do Boteco!');
+        alert(res?.message || 'Erro ao entrar na mesa!');
       }
     });
   };
@@ -157,6 +166,16 @@ export default function App() {
     socket.emit('decideMao11', { roomId: roomState.roomId, playerId: currentPlayer?.playerId, accept });
   };
 
+  const handleSendSignal = (signal) => {
+    if (!socket || !roomState || !currentPlayer) return;
+    socket.emit('sendPartnerSignal', {
+      roomId: roomState.roomId,
+      playerId: currentPlayer.playerId,
+      signal
+    });
+    triggerNotification(`Você passou o sinal: ${signal.emoji} ${signal.name}`);
+  };
+
   const handleLeaveRoom = () => {
     if (socket && roomState) {
       socket.emit('leaveRoom', { roomId: roomState.roomId, playerId: currentPlayer?.playerId });
@@ -190,10 +209,18 @@ export default function App() {
   const isMyTeamMao11Decision = roomState.status === 'MAO_11_DECISION' && hand?.mao11Team === currentPlayer?.team;
   const opponents = roomState.players.filter(p => p.team !== currentPlayer?.team);
 
+  // Mapear avatares Caipiras
+  const avatarList = [
+    '/avatars/caipira1.svg',
+    '/avatars/caipira2.svg',
+    '/avatars/caipira1.svg',
+    '/avatars/caipira2.svg'
+  ];
+
   return (
     <div className="flex flex-col min-h-screen boteco-bg select-none overflow-hidden text-slate-100 relative">
       
-      {/* Placar em Lousa de Giz de Bar */}
+      {/* PLACAR CENTRALIZADO NO TOPO */}
       <Scoreboard
         roomState={roomState}
         currentPlayer={currentPlayer}
@@ -201,16 +228,16 @@ export default function App() {
         onToggleMute={toggleMute}
       />
 
-      {/* Pop-up de Notificação */}
+      {/* POP-UP DE NOTIFICAÇÃO */}
       {notification && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-amber-500 text-slate-950 px-6 py-2.5 rounded-full font-black shadow-2xl flex items-center gap-2 border-2 border-amber-300 animate-bounce">
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-amber-500 text-slate-950 px-6 py-2.5 rounded-full font-black shadow-2xl flex items-center gap-2 border-2 border-amber-300 animate-bounce">
           <AlertCircle className="w-5 h-5" />
           {notification}
         </div>
       )}
 
-      {/* LOUSA DE REGISTRO DA PARTIDA (POSICIONADA NO TOPO ESQUERDO) */}
-      <aside className="fixed top-16 left-3 z-30 w-64 md:w-72 lousa-boteco rounded-2xl p-3 shadow-2xl hidden md:block border-2 border-amber-800/80">
+      {/* LOUSA DE REGISTRO DA PARTIDA (POSICIONADA NO TOPO ESQUERDO UM POUCO MAIS PARA BAIXO) */}
+      <aside className="fixed top-24 left-3 z-30 w-64 md:w-72 lousa-boteco rounded-2xl p-3 shadow-2xl hidden md:block border-2 border-amber-800/80">
         <div className="text-[11px] font-mono font-bold text-amber-400 uppercase tracking-wider mb-1.5 flex items-center justify-between border-b border-slate-800 pb-1">
           <span className="flex items-center gap-1.5"><ScrollText className="w-3.5 h-3.5" /> Lousa de Registro</span>
           <span className="w-2 h-2 rounded-full bg-amber-400"></span>
@@ -226,7 +253,7 @@ export default function App() {
         </div>
       </aside>
 
-      {/* CHAT DE TEXTO E VOZ WEBRTC (POSICIONADO NO CANTO INFERIOR DIREITO) */}
+      {/* CHAT DE TEXTO E VOZ WEBRTC (CANTO INFERIOR DIREITO) */}
       <ChatBox
         socket={socket}
         roomId={roomState.roomId}
@@ -234,20 +261,40 @@ export default function App() {
         roomState={roomState}
       />
 
-      {/* ÁREA DA MESA REDONDA DE MADEIRA DE BOTECO */}
-      <main className="flex-1 flex flex-col justify-between items-center p-4 max-w-5xl mx-auto w-full relative">
+      {/* ÁREA PRINCIPAL DA MESA QUADRADA E PERSONAGENS CAIPIRAS */}
+      <main className="flex-1 flex flex-col justify-between items-center p-2 max-w-5xl mx-auto w-full relative">
         
-        {/* OPONENTES (NORTE DA MESA REDONDA) */}
-        <div className="flex justify-center items-center gap-6 pt-2 z-10">
-          {opponents.map(op => (
-            <div key={op.playerId} className="flex flex-col items-center gap-1">
-              <div className={`flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-bold shadow-lg ${
+        {/* OPONENTES SENTADOS NA MESA (AVATARES CAIPIRAS NO NORTE DA MESA) */}
+        <div className="flex justify-center items-center gap-8 pt-1 z-10">
+          {opponents.map((op, opIdx) => (
+            <div key={op.playerId} className="flex flex-col items-center gap-1 relative">
+              
+              {/* Balão de Sinal Secreto Animado */}
+              {activePartnerSignal && activePartnerSignal.senderPlayerId === op.playerId && (
+                <div className="absolute -top-12 z-40 bg-amber-400 text-slate-950 px-3 py-1.5 rounded-full font-black text-xs shadow-2xl border-2 border-white signal-pop flex items-center gap-1">
+                  <span className="text-base">{activePartnerSignal.signal.emoji}</span>
+                  <span>{activePartnerSignal.signal.name}</span>
+                </div>
+              )}
+
+              {/* Avatar do Caipira */}
+              <div className="w-14 h-14 md:w-16 md:h-16 rounded-full border-2 border-amber-500 overflow-hidden shadow-2xl bg-amber-950 flex items-center justify-center">
+                <img
+                  src={avatarList[opIdx % avatarList.length]}
+                  alt="Caipira"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+
+              <div className={`flex items-center gap-1.5 px-3 py-0.5 rounded-full border text-xs font-bold shadow ${
                 hand?.turnPlayerId === op.playerId ? 'bg-amber-400 text-slate-950 border-amber-300 ring-4 ring-amber-400/40 animate-pulse' : 'bg-slate-900/90 text-slate-300 border-slate-700'
               }`}>
                 <span className={`w-2 h-2 rounded-full ${op.connected ? 'bg-emerald-400' : 'bg-red-500'}`}></span>
                 <span>{op.name}</span>
-                <span className="bg-amber-950 text-amber-300 px-1.5 py-0.2 rounded text-[10px]">Time {op.team}</span>
+                <span className="bg-amber-950 text-amber-300 px-1 py-0.2 rounded text-[10px]">T{op.team}</span>
               </div>
+
+              {/* Cartas do Oponente */}
               <div className="flex gap-1">
                 {Array.from({ length: op.cardCount || 0 }).map((_, i) => (
                   <Card key={i} card={{ id: 'BACK', hidden: true }} isSmall disabled />
@@ -257,41 +304,47 @@ export default function App() {
           ))}
         </div>
 
-        {/* ESTRUTURA CIRCULAR DA MESA DE MADEIRA MOGNO DE BOTECO */}
-        <div className="my-auto relative w-[320px] h-[320px] sm:w-[420px] sm:h-[420px] md:w-[480px] md:h-[480px] round-table-boteco flex flex-col items-center justify-center p-4">
+        {/* ESTRUTURA DA MESA QUADRADA DE TRUCO (FELTRO VERMELHO COM NAIPES + 4 PORTA-COPOS) */}
+        <div className="my-auto relative w-[340px] h-[340px] sm:w-[420px] sm:h-[420px] md:w-[460px] md:h-[460px] square-table-truco suits-pattern-bg flex flex-col items-center justify-center p-4">
           
+          {/* PORTA-COPOS NOS 4 CANTOS DA MESA QUADRADA (COMO NA IMAGEM) */}
+          <div className="absolute top-2 left-2 cup-holder flex items-center justify-center text-[10px] text-amber-500/40">🍺</div>
+          <div className="absolute top-2 right-2 cup-holder flex items-center justify-center text-[10px] text-amber-500/40">🍺</div>
+          <div className="absolute bottom-2 left-2 cup-holder flex items-center justify-center text-[10px] text-amber-500/40">🍺</div>
+          <div className="absolute bottom-2 right-2 cup-holder flex items-center justify-center text-[10px] text-amber-500/40">🍺</div>
+
           {/* ADESIVO DO PATROCINADOR (MARIA LANCHES) COLADO NA MESA */}
           <div 
             onClick={() => triggerNotification('🍔 Maria Lanches: O melhor lanche do Boteco!')}
-            className="absolute -top-6 -right-6 md:-top-8 md:-right-8 z-30 sponsor-sticker p-1.5 cursor-pointer flex flex-col items-center select-none"
+            className="absolute -top-6 -right-6 md:-top-7 md:-right-7 z-30 sponsor-sticker p-1.5 cursor-pointer flex flex-col items-center select-none"
             title="Patrocinador Oficial: Maria Lanches"
           >
             <img 
               src="/marialanches.png" 
               alt="Maria Lanches" 
-              className="w-16 h-16 md:w-24 md:h-24 object-contain rounded-lg shadow-inner"
+              className="w-14 h-14 md:w-20 md:h-20 object-contain rounded-lg shadow-inner"
             />
-            <span className="text-[9px] md:text-[10px] font-black text-slate-950 uppercase tracking-tighter mt-1 bg-amber-400 px-1.5 py-0.5 rounded border border-amber-600 shadow-sm">
+            <span className="text-[8px] md:text-[9px] font-black text-slate-950 uppercase tracking-tighter mt-1 bg-amber-400 px-1 py-0.5 rounded border border-amber-600 shadow-sm">
               PATROCINADOR
             </span>
           </div>
 
           {/* VIRA E MANILHA */}
-          <div className="flex items-center gap-3 bg-slate-950/85 p-2.5 rounded-2xl border border-amber-500/40 shadow-2xl z-10 mb-2">
+          <div className="flex items-center gap-3 bg-slate-950/90 p-2 rounded-2xl border border-amber-500/50 shadow-2xl z-10 mb-2">
             <div className="flex flex-col items-center">
               <span className="text-[10px] text-amber-400 font-mono font-bold tracking-wider uppercase">VIRA</span>
               <Card card={hand?.vira} isVira isSmall disabled />
             </div>
-            <div className="h-14 w-px bg-slate-800"></div>
+            <div className="h-12 w-px bg-slate-800"></div>
             <div className="flex flex-col items-center">
               <span className="text-[10px] text-slate-400 font-mono font-bold tracking-wider uppercase">MANILHA</span>
-              <div className="bg-amber-500 text-slate-950 font-black px-3 py-1 rounded-lg text-lg shadow-lg border border-amber-300">
+              <div className="bg-amber-500 text-slate-950 font-black px-3 py-1 rounded-lg text-base shadow-lg border border-amber-300">
                 {hand?.manilha}
               </div>
             </div>
           </div>
 
-          {/* CARTAS JOGADAS NA MESA REDONDA */}
+          {/* CARTAS JOGADAS NO CENTRO DA MESA QUADRADA */}
           <div className="flex items-center justify-center gap-3 min-h-[110px] w-full z-10">
             {hand?.playedCardsThisRound && hand.playedCardsThisRound.length > 0 ? (
               hand.playedCardsThisRound.map((pc, idx) => {
@@ -306,8 +359,8 @@ export default function App() {
                 );
               })
             ) : (
-              <div className="text-amber-200/60 text-xs font-mono font-bold uppercase tracking-widest bg-slate-950/40 border border-dashed border-amber-500/30 px-5 py-6 rounded-2xl">
-                Mesa Limpa • Bate a carta!
+              <div className="text-amber-100/70 text-xs font-mono font-bold uppercase tracking-widest bg-slate-950/50 border border-dashed border-amber-500/40 px-5 py-6 rounded-2xl backdrop-blur-sm">
+                Mesa Quadrada Limpa • Bate a carta!
               </div>
             )}
           </div>
@@ -320,18 +373,19 @@ export default function App() {
             {isMyTurn ? 'SUA VEZ DE BATER!' : `Vez de ${roomState.players.find(p => p.playerId === hand?.turnPlayerId)?.name || 'outro'}`}
           </div>
 
-          {/* DECORAÇÃO DA MESA (BOLACHA DE CHOPP) */}
-          <div className="absolute -bottom-4 -left-4 w-14 h-14 rounded-full beer-coaster opacity-40 hidden sm:flex items-center justify-center text-xs text-amber-900 font-bold rotate-12">
-            CHOPP
-          </div>
-          <div className="absolute -bottom-4 -right-4 w-14 h-14 rounded-full beer-coaster opacity-40 hidden sm:flex items-center justify-center text-xs text-amber-900 font-bold -rotate-12">
-            TRUCO
-          </div>
         </div>
 
-        {/* ÁREA DA SUA MÃO (SUL DA MESA REDONDA) */}
-        <div className="flex flex-col items-center gap-3 pb-2 z-10 w-full">
+        {/* ÁREA DO JOGADOR LOCAL (SUL DA MESA COM SEU AVATAR CAIPIRA E CARTAS) */}
+        <div className="flex flex-col items-center gap-2 pb-1 z-10 w-full">
           
+          {/* PAINEL DE SINAIS SECRETOS DE DUPLA */}
+          <div className="flex items-center gap-2 mb-1">
+            <SignalPanel
+              onSendSignal={handleSendSignal}
+              disabled={roomState.status !== 'PLAYING'}
+            />
+          </div>
+
           {/* BOTÕES DE AÇÃO (TRUCO / COBERTA / SAIR) */}
           <div className="flex flex-wrap items-center justify-center gap-3">
             <button
@@ -367,21 +421,38 @@ export default function App() {
             </button>
           </div>
 
-          {/* SUAS CARTAS NA MÃO */}
-          <div className="flex items-center justify-center gap-3 md:gap-6 min-h-[120px]">
-            {currentPlayer?.hand && currentPlayer.hand.length > 0 ? (
-              currentPlayer.hand.map((card, idx) => (
-                <Card
-                  key={card.id || idx}
-                  card={card}
-                  onClick={() => handlePlayCard(card)}
-                  disabled={!isMyTurn || roomState.status !== 'PLAYING'}
-                  isManilha={card.value === hand?.manilha}
+          {/* SUAS CARTAS NA MÃO COM SEU AVATAR CAIPIRA AO LADO */}
+          <div className="flex items-center justify-center gap-4 min-h-[110px]">
+            {/* Seu Avatar Caipira */}
+            <div className="flex flex-col items-center gap-1">
+              <div className="w-12 h-12 md:w-14 md:h-14 rounded-full border-2 border-amber-400 overflow-hidden shadow-xl bg-amber-950">
+                <img
+                  src="/avatars/caipira1.svg"
+                  alt="Seu Avatar Caipira"
+                  className="w-full h-full object-cover"
                 />
-              ))
-            ) : (
-              <div className="text-slate-500 text-xs font-semibold">Sem cartas na mão</div>
-            )}
+              </div>
+              <span className="text-[10px] font-bold text-amber-400 bg-slate-950 px-2 py-0.5 rounded-full border border-amber-500/40">
+                {currentPlayer?.name} (Você)
+              </span>
+            </div>
+
+            {/* Cartas na mão */}
+            <div className="flex items-center justify-center gap-2 md:gap-4">
+              {currentPlayer?.hand && currentPlayer.hand.length > 0 ? (
+                currentPlayer.hand.map((card, idx) => (
+                  <Card
+                    key={card.id || idx}
+                    card={card}
+                    onClick={() => handlePlayCard(card)}
+                    disabled={!isMyTurn || roomState.status !== 'PLAYING'}
+                    isManilha={card.value === hand?.manilha}
+                  />
+                ))
+              ) : (
+                <div className="text-slate-500 text-xs font-semibold">Sem cartas na mão</div>
+              )}
+            </div>
           </div>
 
         </div>

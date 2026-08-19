@@ -515,6 +515,26 @@ io.on('connection', (socket) => {
     broadcastRoomState(roomId);
   });
 
+  // --- SINAIS SECRETOS DE DUPLA ---
+  socket.on('sendPartnerSignal', ({ roomId, playerId, signal }) => {
+    const room = rooms[roomId];
+    if (!room) return;
+
+    const player = room.players.find(p => p.playerId === playerId);
+    if (!player) return;
+
+    // Enviar o sinal APENAS para os parceiros do mesmo time
+    room.players.forEach(p => {
+      if (p.team === player.team && p.socketId) {
+        io.to(p.socketId).emit('partnerSignalReceived', {
+          senderPlayerId: playerId,
+          senderName: player.name,
+          signal
+        });
+      }
+    });
+  });
+
   // --- CHAT DE TEXTO ---
   socket.on('sendChatMessage', ({ roomId, playerId, text }) => {
     const room = rooms[roomId];
@@ -585,5 +605,5 @@ app.get('*', (req, res) => {
 
 const PORT = process.env.PORT || 4000;
 httpServer.listen(PORT, () => {
-  console.log(`=== Servidor de Truco de Boteco Rodando na Porta ${PORT} ===`);
+  console.log(`=== Servidor de Truco Caipira Rodando na Porta ${PORT} ===`);
 });
