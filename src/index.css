@@ -3,33 +3,71 @@
 @tailwind utilities;
 
 @layer utilities {
-  .felt-texture {
-    background-color: #113826;
-    background-image: radial-gradient(#1c5c40 15%, transparent 16%), radial-gradient(#0d2b1d 15%, transparent 16%);
-    background-size: 30px 30px;
-    background-position: 0 0, 15px 15px;
+  /* Fundo estilo Boteco Clássico (Parede de Tijolos / Madeira Escura) */
+  .boteco-bg {
+    background-color: #0b0705;
+    background-image: 
+      radial-gradient(circle at 50% 20%, rgba(212, 168, 83, 0.15), transparent 70%),
+      radial-gradient(circle at 10% 80%, rgba(139, 69, 19, 0.2), transparent 50%),
+      radial-gradient(circle at 90% 80%, rgba(139, 69, 19, 0.2), transparent 50%);
   }
 
-  .glow-gold {
-    box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+  /* Mesa Redonda de Madeira e Feltro de Boteco */
+  .round-table-boteco {
+    background: radial-gradient(circle at center, #1b4d36 0%, #103624 70%, #0a2619 100%);
+    border: 14px solid #4a2c11;
+    box-shadow: 
+      inset 0 0 40px rgba(0, 0, 0, 0.8),
+      0 0 0 2px #d4a853,
+      0 15px 40px rgba(0, 0, 0, 0.9);
+    border-radius: 50%;
   }
 
-  .glow-card {
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 10px rgba(255, 255, 255, 0.1);
+  /* Placar em Lousa de Bar */
+  .lousa-boteco {
+    background: #141916;
+    border: 4px solid #5c3a21;
+    box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.8), 0 4px 10px rgba(0, 0, 0, 0.6);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* Bolacha de Cerveja / Coaster Decorativo */
+  .beer-coaster {
+    background: radial-gradient(circle, #fbf7ee 0%, #e2d2b5 100%);
+    border: 3px dashed #8b4513;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+  }
+
+  /* Efeito de Truco Shake / Tremor */
+  .shake-truco {
+    animation: trucoShake 0.4s cubic-bezier(.36,.07,.19,.97) both;
   }
 }
 
-/* Custom scrollbar for game log */
+@keyframes trucoShake {
+  10%, 90% { transform: translate3d(-2px, 0, 0) scale(1.02); }
+  20%, 80% { transform: translate3d(4px, 0, 0) scale(1.03); }
+  30%, 50%, 70% { transform: translate3d(-6px, 0, 0) scale(1.04); }
+  40%, 60% { transform: translate3d(6px, 0, 0) scale(1.03); }
+}
+
+@keyframes dealCard {
+  0% { transform: translateY(-120px) scale(0.4) rotate(-15deg); opacity: 0; }
+  100% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+}
+
+.animate-deal-card {
+  animation: dealCard 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* Scrollbar estilo rústico */
 ::-webkit-scrollbar {
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: #141916;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: #d4a853;
   border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.4);
 }

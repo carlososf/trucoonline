@@ -13,7 +13,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'dist')));
 
-
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
@@ -22,12 +21,12 @@ const io = new Server(httpServer, {
   }
 });
 
-// Constantes do Baralho de 40 Cartas (sem 8, 9, 10)
+// Baralho de 40 Cartas (Truco Paulista/Mineiro)
 const SUITS = [
-  { symbol: '♣', name: 'Paus', rank: 4 }, // Zap
-  { symbol: '♥', name: 'Copas', rank: 3 }, // Copas
-  { symbol: '♠', name: 'Espadas', rank: 2 }, // Espadilha
-  { symbol: '♦', name: 'Ouros', rank: 1 }  // Pica-fumo
+  { symbol: '♣', name: 'Paus', rank: 4 },     // Zap
+  { symbol: '♥', name: 'Copas', rank: 3 },    // Copas
+  { symbol: '♠', name: 'Espadas', rank: 2 },  // Espadilha
+  { symbol: '♦', name: 'Ouros', rank: 1 }     // Pica-fumo
 ];
 
 const VALUES_ORDER = ['4', '5', '6', '7', 'Q', 'J', 'K', 'A', '2', '3'];
@@ -38,8 +37,8 @@ function getManilhaValue(viraValue) {
   return VALUES_ORDER[(index + 1) % VALUES_ORDER.length];
 }
 
-function getCardStrength(card, viraValue) {
-  if (!card) return -1;
+function getCardStrength(card, viraValue, isHidden) {
+  if (!card || isHidden) return -999; // Carta coberta perde para qualquer carta normal
   const manilhaValue = getManilhaValue(viraValue);
   
   if (card.value === manilhaValue) {
@@ -50,9 +49,9 @@ function getCardStrength(card, viraValue) {
   return VALUES_ORDER.indexOf(card.value);
 }
 
-function compareCards(cardA, cardB, viraValue) {
-  const strengthA = getCardStrength(cardA, viraValue);
-  const strengthB = getCardStrength(cardB, viraValue);
+function compareCards(pcA, pcB, viraValue) {
+  const strengthA = getCardStrength(pcA.card, viraValue, pcA.hidden);
+  const strengthB = getCardStrength(pcB.card, viraValue, pcB.hidden);
   return strengthA - strengthB;
 }
 
@@ -102,22 +101,29 @@ function generateRoomCode() {
   return code;
 }
 
-// Repositório em memória das salas
 const rooms = {};
 
 function sanitizeRoomState(room, requestingPlayerId) {
   if (!room) return null;
 
+  const requestingPlayer = room.players.find(p => p.playerId === requestingPlayerId);
+  const isMao11 = room.currentHand?.isMao11;
+  const isMaoFerro = room.currentHand?.isMaoFerro;
+
   const sanitizedPlayers = room.players.map(p => {
     const isSelf = p.playerId === requestingPlayerId;
+    const isPartner = requestingPlayer && p.team === requestingPlayer.team;
+    
+    // Na Mão de 11, parceiros de time enxergam as cartas um do outro!
+    const canSeeHand = isSelf || (isMao11 && isPartner && !isMaoFerro);
+
     return {
       playerId: p.playerId,
       name: p.name,
       team: p.team,
       connected: p.connected,
       cardCount: p.hand ? p.hand.length : 0,
-      // Apenas envia as cartas para o próprio jogador
-      hand: isSelf ? p.hand : p.hand ? p.hand.map(c => ({ id: 'BACK', hidden: true })) : []
+      hand: canSeeHand ? p.hand : p.hand ? p.hand.map(() => ({ id: 'BACK', hidden: true })) : []
     };
   });
 
@@ -142,6 +148,10 @@ function sanitizeRoomState(room, requestingPlayerId) {
       })),
       trucoState: room.currentHand.trucoState,
       handWinners: room.currentHand.handWinners,
+      isMao11: room.currentHand.isMao11,
+      isMaoFerro: room.currentHand.isMaoFerro,
+      mao11Team: room.currentHand.mao11Team,
+      mao11Decision: room.currentHand.mao11Decision,
       lastActionMsg: room.currentHand.lastActionMsg
     } : null,
     winnerTeam: room.winnerTeam || null
@@ -164,7 +174,6 @@ function startNewHand(room) {
   const seed = Math.random().toString(36).substring(2, 10);
   const deck = shuffleDeck(createDeck(), seed);
 
-  // Distribuir 3 cartas para cada jogador
   let cardIdx = 0;
   room.players.forEach(p => {
     p.hand = [deck[cardIdx++], deck[cardIdx++], deck[cardIdx++]];
@@ -173,34 +182,49 @@ function startNewHand(room) {
   const vira = deck[cardIdx++];
   const manilha = getManilhaValue(vira.value);
 
-  // Definir quem começa a mão (rotativo)
   const starterIndex = (room.starterPlayerIndex ?? -1) + 1;
   const actualStarterIdx = starterIndex % room.players.length;
   room.starterPlayerIndex = actualStarterIdx;
   const starterPlayer = room.players[actualStarterIdx];
 
-  room.status = 'PLAYING';
+  // Verificar Mão de 11 e Mão de Ferro
+  const t1 = room.scores.team1;
+  const t2 = room.scores.team2;
+  const isMao11 = t1 === 11 || t2 === 11;
+  const isMaoFerro = t1 === 11 && t2 === 11;
+  const mao11Team = isMaoFerro ? 'BOTH' : t1 === 11 ? 1 : t2 === 11 ? 2 : null;
+
+  room.status = (isMao11 && !isMaoFerro) ? 'MAO_11_DECISION' : 'PLAYING';
+
+  let initialMsg = `🍺 Nova mão iniciada! Vira: ${vira.value}${vira.suit}. Vez de ${starterPlayer.name}`;
+  if (isMaoFerro) initialMsg = `⚡ MÃO DE FERRO (11 x 11)! Partida jogada no escuro!`;
+  else if (isMao11) initialMsg = `⚠️ MÃO DE 11 para o Time ${mao11Team}! Decidam se jogam por 3 pontos ou correm.`;
+
   room.currentHand = {
     seed,
     vira,
     manilha,
-    handValue: 1,
+    handValue: isMao11 ? 3 : 1,
     currentRoundIndex: 0,
     turnPlayerId: starterPlayer.playerId,
     roundStarterPlayerId: starterPlayer.playerId,
     playedCardsThisRound: [],
-    rounds: [], // [{ winnerTeam: 1 | 2 | 'TIE', cardsPlayed: [] }]
+    rounds: [],
     handWinners: { team1Wins: 0, team2Wins: 0 },
+    isMao11,
+    isMaoFerro,
+    mao11Team,
+    mao11Decision: isMao11 && !isMaoFerro ? 'PENDING' : 'ACCEPTED',
     trucoState: {
-      status: 'NONE', // 'NONE', 'PENDING'
+      status: 'NONE',
       callingPlayerId: null,
       callingTeam: null,
       targetTeam: null,
-      currentLevel: 1,
+      currentLevel: isMao11 ? 3 : 1,
       pendingLevel: 3,
-      lastTrucoTeam: null // Para impedir que o mesmo time peça truco seguido
+      lastTrucoTeam: null
     },
-    lastActionMsg: `Nova mão iniciada! Vira: ${vira.value}${vira.suit}. Vez de ${starterPlayer.name}`
+    lastActionMsg: initialMsg
   };
 }
 
@@ -210,16 +234,13 @@ function checkHandWinner(room) {
 
   let team1Wins = 0;
   let team2Wins = 0;
-  let ties = 0;
 
   rounds.forEach(r => {
     if (r.winnerTeam === 1) team1Wins++;
     else if (r.winnerTeam === 2) team2Wins++;
-    else if (r.winnerTeam === 'TIE') ties++;
   });
 
   hand.handWinners = { team1Wins, team2Wins };
-
   let winningTeam = null;
 
   if (team1Wins >= 2) winningTeam = 1;
@@ -229,26 +250,16 @@ function checkHandWinner(room) {
     else if (team2Wins > team1Wins) winningTeam = 2;
   }
 
-  // Regras de Empate (Canga)
+  // Regras de Canga (Empate nas rodadas)
   if (!winningTeam) {
-    if (rounds.length === 1 && rounds[0].winnerTeam === 'TIE') {
-      // Se a 1ª rodada empatar, quem vencer a 2ª ganha a mão
-    } else if (rounds.length === 2) {
-      if (rounds[0].winnerTeam === 'TIE' && rounds[1].winnerTeam !== 'TIE') {
-        winningTeam = rounds[1].winnerTeam;
-      } else if (rounds[0].winnerTeam !== 'TIE' && rounds[1].winnerTeam === 'TIE') {
-        winningTeam = rounds[0].winnerTeam;
-      }
+    if (rounds.length === 2) {
+      if (rounds[0].winnerTeam === 'TIE' && rounds[1].winnerTeam !== 'TIE') winningTeam = rounds[1].winnerTeam;
+      else if (rounds[0].winnerTeam !== 'TIE' && rounds[1].winnerTeam === 'TIE') winningTeam = rounds[0].winnerTeam;
     } else if (rounds.length === 3) {
-      if (rounds[0].winnerTeam === 'TIE' && rounds[1].winnerTeam === 'TIE' && rounds[2].winnerTeam !== 'TIE') {
-        winningTeam = rounds[2].winnerTeam;
-      } else if (rounds[0].winnerTeam === 'TIE' && rounds[1].winnerTeam === 'TIE' && rounds[2].winnerTeam === 'TIE') {
-        // As 3 empataram: ninguém pontua, reinicia mão
-        hand.lastActionMsg = 'As 3 rodadas empataram! Ninguém pontua.';
-        setTimeout(() => {
-          startNewHand(room);
-          broadcastRoomState(room.roomId);
-        }, 2500);
+      if (rounds[0].winnerTeam === 'TIE' && rounds[1].winnerTeam === 'TIE' && rounds[2].winnerTeam !== 'TIE') winningTeam = rounds[2].winnerTeam;
+      else if (rounds[0].winnerTeam === 'TIE' && rounds[1].winnerTeam === 'TIE' && rounds[2].winnerTeam === 'TIE') {
+        hand.lastActionMsg = 'Empate triplo! Ninguém pontua.';
+        setTimeout(() => { startNewHand(room); broadcastRoomState(room.roomId); }, 2500);
         return;
       }
     }
@@ -259,22 +270,17 @@ function checkHandWinner(room) {
     if (winningTeam === 1) room.scores.team1 += pointsAwarded;
     else room.scores.team2 += pointsAwarded;
 
-    hand.lastActionMsg = `Time ${winningTeam} venceu a mão e ganhou ${pointsAwarded} ponto(s)!`;
+    hand.lastActionMsg = `🎉 Time ${winningTeam} venceu a mão e ganhou ${pointsAwarded} ponto(s)!`;
 
-    // Verifica se algum time atingiu 12 pontos
     if (room.scores.team1 >= 12 || room.scores.team2 >= 12) {
       room.status = 'GAME_OVER';
       room.winnerTeam = room.scores.team1 >= 12 ? 1 : 2;
-      hand.lastActionMsg = `FIM DE JOGO! Time ${room.winnerTeam} é o campeão!`;
+      hand.lastActionMsg = `🏆 FIM DE JOGO! Time ${room.winnerTeam} é o campeão do Boteco!`;
       broadcastRoomState(room.roomId);
     } else {
-      setTimeout(() => {
-        startNewHand(room);
-        broadcastRoomState(room.roomId);
-      }, 3000);
+      setTimeout(() => { startNewHand(room); broadcastRoomState(room.roomId); }, 3000);
     }
   } else {
-    // Próxima rodada
     hand.currentRoundIndex++;
     hand.playedCardsThisRound = [];
     broadcastRoomState(room.roomId);
@@ -284,22 +290,20 @@ function checkHandWinner(room) {
 function evaluateRound(room) {
   const hand = room.currentHand;
   const played = hand.playedCardsThisRound;
-  
   if (played.length < room.players.length) return;
 
-  // Encontrar a carta mais forte jogada nesta rodada
-  let highestCard = null;
+  let highestPlayed = null;
   let roundWinnerPlayerId = null;
   let isTie = false;
 
   played.forEach(p => {
-    if (!highestCard) {
-      highestCard = p.card;
+    if (!highestPlayed) {
+      highestPlayed = p;
       roundWinnerPlayerId = p.playerId;
     } else {
-      const cmp = compareCards(p.card, highestCard, hand.vira.value);
+      const cmp = compareCards(p, highestPlayed, hand.vira.value);
       if (cmp > 0) {
-        highestCard = p.card;
+        highestPlayed = p;
         roundWinnerPlayerId = p.playerId;
         isTie = false;
       } else if (cmp === 0) {
@@ -311,75 +315,41 @@ function evaluateRound(room) {
   const winnerPlayer = room.players.find(p => p.playerId === roundWinnerPlayerId);
   const winnerTeam = isTie ? 'TIE' : winnerPlayer.team;
 
-  hand.rounds.push({
-    winnerTeam,
-    winnerPlayerId: isTie ? null : roundWinnerPlayerId,
-    cardsPlayed: [...played]
-  });
+  hand.rounds.push({ winnerTeam, winnerPlayerId: isTie ? null : roundWinnerPlayerId, cardsPlayed: [...played] });
 
   if (isTie) {
-    hand.lastActionMsg = `Rodada ${hand.currentRoundIndex + 1} EMPATOU!`;
-    // Em caso de empate, mantém o mesmo jogador para iniciar a próxima rodada
+    hand.lastActionMsg = `🤝 Rodada ${hand.currentRoundIndex + 1} EMPATOU!`;
   } else {
-    hand.lastActionMsg = `${winnerPlayer.name} (Time ${winnerTeam}) venceu a ${hand.currentRoundIndex + 1}ª rodada!`;
+    hand.lastActionMsg = `💥 ${winnerPlayer.name} (Time ${winnerTeam}) levou a ${hand.currentRoundIndex + 1}ª rodada!`;
     hand.turnPlayerId = roundWinnerPlayerId;
-    hand.roundStarterPlayerId = roundWinnerPlayerId;
   }
 
   checkHandWinner(room);
 }
 
-// Eventos de Conexão Socket.IO
 io.on('connection', (socket) => {
-  console.log(`Cliente conectado: ${socket.id}`);
-
-  // 1. Criar Sala
   socket.on('createRoom', ({ name, maxPlayers = 2 }, callback) => {
     const roomId = generateRoomCode();
     const playerId = `p_${Math.random().toString(36).substring(2, 9)}`;
 
-    const player = {
-      id: socket.id,
-      playerId,
-      name: name || 'Jogador 1',
-      socketId: socket.id,
-      team: 1,
-      connected: true,
-      hand: []
-    };
-
-    rooms[roomId] = {
-      roomId,
-      maxPlayers: Number(maxPlayers) || 2,
-      players: [player],
-      status: 'LOBBY',
-      scores: { team1: 0, team2: 0 },
-      starterPlayerIndex: 0
-    };
+    const player = { id: socket.id, playerId, name: name || 'Jogador 1', socketId: socket.id, team: 1, connected: true, hand: [] };
+    rooms[roomId] = { roomId, maxPlayers: Number(maxPlayers) || 2, players: [player], status: 'LOBBY', scores: { team1: 0, team2: 0 }, starterPlayerIndex: 0 };
 
     socket.join(roomId);
     if (callback) callback({ success: true, roomId, playerId, player });
     broadcastRoomState(roomId);
   });
 
-  // 2. Entrar na Sala
   socket.on('joinRoom', ({ roomId, name, playerId }, callback) => {
     const room = rooms[roomId?.toUpperCase()];
+    if (!room) { if (callback) callback({ success: false, message: 'Sala não encontrada!' }); return; }
 
-    if (!room) {
-      if (callback) callback({ success: false, message: 'Sala não encontrada!' });
-      return;
-    }
-
-    // Verificar se é reconexão
     let existingPlayer = room.players.find(p => p.playerId === playerId);
-
     if (existingPlayer) {
       existingPlayer.socketId = socket.id;
       existingPlayer.connected = true;
       if (name) existingPlayer.name = name;
       socket.join(room.roomId);
-
       if (callback) callback({ success: true, roomId: room.roomId, playerId: existingPlayer.playerId, player: existingPlayer });
       broadcastRoomState(room.roomId);
       return;
@@ -391,119 +361,103 @@ io.on('connection', (socket) => {
     }
 
     const newPlayerId = playerId || `p_${Math.random().toString(36).substring(2, 9)}`;
-    const team = (room.players.length % 2) + 1; // Alterna Time 1 e Time 2
-
-    const player = {
-      id: socket.id,
-      playerId: newPlayerId,
-      name: name || `Jogador ${room.players.length + 1}`,
-      socketId: socket.id,
-      team,
-      connected: true,
-      hand: []
-    };
+    const team = (room.players.length % 2) + 1;
+    const player = { id: socket.id, playerId: newPlayerId, name: name || `Jogador ${room.players.length + 1}`, socketId: socket.id, team, connected: true, hand: [] };
 
     room.players.push(player);
     socket.join(room.roomId);
-
     if (callback) callback({ success: true, roomId: room.roomId, playerId: newPlayerId, player });
     broadcastRoomState(room.roomId);
   });
 
-  // 3. Iniciar Jogo
-  socket.on('startGame', ({ roomId, playerId }) => {
+  socket.on('startGame', ({ roomId }) => {
     const room = rooms[roomId];
-    if (!room) return;
-    if (room.players.length < 2) return;
-
+    if (!room || room.players.length < 2) return;
     startNewHand(room);
     broadcastRoomState(roomId);
   });
 
-  // 4. Jogar Carta
+  // Decisão Mão de 11 (Jogar por 3 pts ou Correr perdendo 1 pt)
+  socket.on('decideMao11', ({ roomId, playerId, accept }) => {
+    const room = rooms[roomId];
+    if (!room || room.status !== 'MAO_11_DECISION') return;
+    const hand = room.currentHand;
+    const player = room.players.find(p => p.playerId === playerId);
+    if (!player || player.team !== hand.mao11Team) return;
+
+    if (accept) {
+      room.status = 'PLAYING';
+      hand.mao11Decision = 'ACCEPTED';
+      hand.lastActionMsg = `👍 Time ${player.team} aceitou a MÃO DE 11! A mão vale 3 pontos.`;
+      broadcastRoomState(roomId);
+    } else {
+      // Correr na mão de 11 concede 1 ponto ao oponente
+      const opposingTeam = player.team === 1 ? 2 : 1;
+      if (opposingTeam === 1) room.scores.team1 += 1;
+      else room.scores.team2 += 1;
+
+      hand.lastActionMsg = `🏃 Time ${player.team} fugiu da Mão de 11! Time ${opposingTeam} ganha 1 ponto.`;
+
+      if (room.scores.team1 >= 12 || room.scores.team2 >= 12) {
+        room.status = 'GAME_OVER';
+        room.winnerTeam = room.scores.team1 >= 12 ? 1 : 2;
+        hand.lastActionMsg = `🏆 FIM DE JOGO! Time ${room.winnerTeam} é o campeão do Boteco!`;
+        broadcastRoomState(roomId);
+      } else {
+        setTimeout(() => { startNewHand(room); broadcastRoomState(roomId); }, 2500);
+      }
+    }
+  });
+
   socket.on('playCard', ({ roomId, playerId, cardId, hidden = false }) => {
     const room = rooms[roomId];
     if (!room || room.status !== 'PLAYING') return;
 
     const hand = room.currentHand;
-    if (!hand || hand.turnPlayerId !== playerId) return; // Validação de Turno
+    if (!hand || hand.turnPlayerId !== playerId) return;
 
     const player = room.players.find(p => p.playerId === playerId);
     if (!player) return;
 
     const cardIndex = player.hand.findIndex(c => c.id === cardId);
-    if (cardIndex === -1) return; // Carta não encontrada na mão
+    if (cardIndex === -1) return;
 
     const [playedCard] = player.hand.splice(cardIndex, 1);
-    if (hidden) playedCard.hidden = true;
+    const isActuallyHidden = hidden || hand.isMaoFerro;
 
-    hand.playedCardsThisRound.push({
-      playerId,
-      team: player.team,
-      card: playedCard,
-      hidden
-    });
+    hand.playedCardsThisRound.push({ playerId, team: player.team, card: playedCard, hidden: isActuallyHidden });
+    hand.lastActionMsg = `${player.name} bateu ${isActuallyHidden ? 'uma carta coberta' : `${playedCard.value}${playedCard.suit}`}`;
 
-    hand.lastActionMsg = `${player.name} jogou ${hidden ? 'uma carta coberta' : `${playedCard.value}${playedCard.suit}`}`;
-
-    // Passar o turno para o próximo jogador
     const currentIdx = room.players.findIndex(p => p.playerId === playerId);
-    const nextIdx = (currentIdx + 1) % room.players.length;
-    hand.turnPlayerId = room.players[nextIdx].playerId;
+    hand.turnPlayerId = room.players[(currentIdx + 1) % room.players.length].playerId;
 
     broadcastRoomState(roomId);
 
-    // Se todos os jogadores da rodada já jogaram, avalia a rodada
     if (hand.playedCardsThisRound.length >= room.players.length) {
-      setTimeout(() => {
-        evaluateRound(room);
-      }, 1000);
+      setTimeout(() => evaluateRound(room), 1000);
     }
   });
 
-  // 5. Chamar Truco (3, 6, 9, 12)
   socket.on('callTruco', ({ roomId, playerId }) => {
     const room = rooms[roomId];
     if (!room || room.status !== 'PLAYING') return;
-
     const hand = room.currentHand;
-    if (!hand || hand.trucoState.status === 'PENDING') return;
-
-    // Apenas quem é a vez pode pedir Truco
-    if (hand.turnPlayerId !== playerId) return;
+    if (!hand || hand.isMao11 || hand.turnPlayerId !== playerId || hand.trucoState.status === 'PENDING') return; // Truco bloqueado na Mão de 11
 
     const player = room.players.find(p => p.playerId === playerId);
-    if (!player) return;
-
-    // Não pode trucar novamente o próprio time
-    if (hand.trucoState.lastTrucoTeam === player.team) return;
+    if (!player || hand.trucoState.lastTrucoTeam === player.team) return;
 
     const currentLevel = hand.trucoState.currentLevel;
-    let nextLevel = 3;
-    if (currentLevel === 3) nextLevel = 6;
-    else if (currentLevel === 6) nextLevel = 9;
-    else if (currentLevel === 9) nextLevel = 12;
-    else if (currentLevel >= 12) return; // Já no máximo
-
+    let nextLevel = currentLevel === 1 ? 3 : currentLevel === 3 ? 6 : currentLevel === 6 ? 9 : 12;
     const targetTeam = player.team === 1 ? 2 : 1;
 
-    hand.trucoState = {
-      status: 'PENDING',
-      callingPlayerId: playerId,
-      callingTeam: player.team,
-      targetTeam,
-      currentLevel,
-      pendingLevel: nextLevel,
-      lastTrucoTeam: player.team
-    };
-
+    hand.trucoState = { status: 'PENDING', callingPlayerId: playerId, callingTeam: player.team, targetTeam, currentLevel, pendingLevel: nextLevel, lastTrucoTeam: player.team };
     room.status = 'TRUCO_PENDING';
-    hand.lastActionMsg = `🔥 ${player.name} (Time ${player.team}) pediu ${nextLevel === 3 ? 'TRUCO' : nextLevel}!`;
+    hand.lastActionMsg = `🔥 ${player.name} (Time ${player.team}) gritou ${nextLevel === 3 ? 'TRUCO!' : `${nextLevel}!`}`;
 
     broadcastRoomState(roomId);
   });
 
-  // 6. Aceitar Truco
   socket.on('acceptTruco', ({ roomId, playerId }) => {
     const room = rooms[roomId];
     if (!room || room.status !== 'TRUCO_PENDING') return;
@@ -516,13 +470,11 @@ io.on('connection', (socket) => {
     hand.trucoState.status = 'NONE';
     hand.handValue = hand.trucoState.pendingLevel;
     room.status = 'PLAYING';
-
-    hand.lastActionMsg = `👍 ${player.name} ACEITOU o ${hand.handValue}! O jogo vale ${hand.handValue} pontos.`;
+    hand.lastActionMsg = `👍 ${player.name} ACEITOU! A mão agora vale ${hand.handValue} pontos.`;
 
     broadcastRoomState(roomId);
   });
 
-  // 7. Recusar Truco / Correr
   socket.on('rejectTruco', ({ roomId, playerId }) => {
     const room = rooms[roomId];
     if (!room || room.status !== 'TRUCO_PENDING') return;
@@ -532,28 +484,23 @@ io.on('connection', (socket) => {
     if (!player || player.team !== hand.trucoState.targetTeam) return;
 
     const winningTeam = hand.trucoState.callingTeam;
-    const pointsAwarded = hand.trucoState.currentLevel; // Pontos do nível antes do aumento
+    const pointsAwarded = hand.trucoState.currentLevel;
 
     if (winningTeam === 1) room.scores.team1 += pointsAwarded;
     else room.scores.team2 += pointsAwarded;
 
-    hand.lastActionMsg = `🏃 ${player.name} RECUSOU / CORREU! Time ${winningTeam} ganha ${pointsAwarded} ponto(s).`;
+    hand.lastActionMsg = `🏃 ${player.name} CORREU! Time ${winningTeam} leva ${pointsAwarded} ponto(s).`;
 
-    // Verifica se acabou a partida
     if (room.scores.team1 >= 12 || room.scores.team2 >= 12) {
       room.status = 'GAME_OVER';
       room.winnerTeam = room.scores.team1 >= 12 ? 1 : 2;
-      hand.lastActionMsg = `FIM DE JOGO! Time ${room.winnerTeam} é o campeão!`;
-      broadcastRoomState(roomId);
+      hand.lastActionMsg = `🏆 FIM DE JOGO! Time ${room.winnerTeam} é o campeão do Boteco!`;
+      broadcastRoomState(room.roomId);
     } else {
-      setTimeout(() => {
-        startNewHand(room);
-        broadcastRoomState(roomId);
-      }, 2500);
+      setTimeout(() => { startNewHand(room); broadcastRoomState(room.roomId); }, 2500);
     }
   });
 
-  // 8. Aumentar Truco (Re-trucar: 3->6, 6->9, 9->12)
   socket.on('raiseTruco', ({ roomId, playerId }) => {
     const room = rooms[roomId];
     if (!room || room.status !== 'TRUCO_PENDING') return;
@@ -563,34 +510,17 @@ io.on('connection', (socket) => {
     if (!player || player.team !== hand.trucoState.targetTeam) return;
 
     const currentPending = hand.trucoState.pendingLevel;
-    let nextLevel = 6;
-    if (currentPending === 3) nextLevel = 6;
-    else if (currentPending === 6) nextLevel = 9;
-    else if (currentPending === 9) nextLevel = 12;
-    else return;
+    let nextLevel = currentPending === 3 ? 6 : currentPending === 6 ? 9 : 12;
 
-    hand.trucoState = {
-      status: 'PENDING',
-      callingPlayerId: playerId,
-      callingTeam: player.team,
-      targetTeam: player.team === 1 ? 2 : 1,
-      currentLevel: currentPending, // O novo valor base se aceito
-      pendingLevel: nextLevel,
-      lastTrucoTeam: player.team
-    };
-
-    hand.lastActionMsg = `🔥 ${player.name} PEDIU ${nextLevel}!`;
+    hand.trucoState = { status: 'PENDING', callingPlayerId: playerId, callingTeam: player.team, targetTeam: player.team === 1 ? 2 : 1, currentLevel: currentPending, pendingLevel: nextLevel, lastTrucoTeam: player.team };
+    hand.lastActionMsg = `🔥 ${player.name} RETRCOU E PEDIU ${nextLevel}!`;
 
     broadcastRoomState(roomId);
   });
 
-  // 9. Reconexão e Atualização de Estado
   socket.on('reconnectPlayer', ({ roomId, playerId }, callback) => {
     const room = rooms[roomId?.toUpperCase()];
-    if (!room) {
-      if (callback) callback({ success: false });
-      return;
-    }
+    if (!room) { if (callback) callback({ success: false }); return; }
 
     const player = room.players.find(p => p.playerId === playerId);
     if (player) {
@@ -604,28 +534,18 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 10. Sair da Sala
   socket.on('leaveRoom', ({ roomId, playerId }) => {
     const room = rooms[roomId];
     if (!room) return;
-
     const player = room.players.find(p => p.playerId === playerId);
-    if (player) {
-      player.connected = false;
-      broadcastRoomState(roomId);
-    }
+    if (player) { player.connected = false; broadcastRoomState(roomId); }
   });
 
-  // Desconexão de socket
   socket.on('disconnect', () => {
-    console.log(`Socket desconectado: ${socket.id}`);
     for (const roomId in rooms) {
       const room = rooms[roomId];
       const player = room.players.find(p => p.socketId === socket.id);
-      if (player) {
-        player.connected = false;
-        broadcastRoomState(roomId);
-      }
+      if (player) { player.connected = false; broadcastRoomState(roomId); }
     }
   });
 });
@@ -636,5 +556,5 @@ app.get('*', (req, res) => {
 
 const PORT = process.env.PORT || 4000;
 httpServer.listen(PORT, () => {
-  console.log(`=== Servidor de Truco Rodando na Porta ${PORT} ===`);
+  console.log(`=== Servidor de Truco de Boteco Rodando na Porta ${PORT} ===`);
 });
