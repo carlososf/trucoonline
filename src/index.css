@@ -38,6 +38,24 @@
     box-shadow: 0 4px 10px rgba(0,0,0,0.5);
   }
 
+  /* Adesivo de Patrocinador de Boteco colado na mesa */
+  .sponsor-sticker {
+    background: rgba(255, 255, 255, 0.92);
+    border: 3px solid #ffffff;
+    box-shadow: 
+      0 6px 15px rgba(0, 0, 0, 0.7),
+      0 0 0 1px rgba(0, 0, 0, 0.1);
+    border-radius: 14px;
+    transform: rotate(-6deg);
+    transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  .sponsor-sticker:hover {
+    transform: rotate(0deg) scale(1.12);
+    box-shadow: 0 10px 25px rgba(245, 158, 11, 0.6);
+    background: #ffffff;
+  }
+
   /* Efeito de Truco Shake / Tremor */
   .shake-truco {
     animation: trucoShake 0.4s cubic-bezier(.36,.07,.19,.97) both;

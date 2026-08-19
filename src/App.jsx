@@ -234,6 +234,22 @@ export default function App() {
         {/* ESTRUTURA DA MESA REDONDA CIRCULAR */}
         <div className="my-auto relative w-[320px] h-[320px] sm:w-[420px] sm:h-[420px] md:w-[480px] md:h-[480px] round-table-boteco flex flex-col items-center justify-center p-4">
           
+          {/* ADESIVO DO PATROCINADOR (MARIA LANCHES) COLADO NA MESA DE BOTECO */}
+          <div 
+            onClick={() => triggerNotification('🍔 Maria Lanches: O melhor lanche do Boteco!')}
+            className="absolute -top-6 -right-6 md:-top-8 md:-right-8 z-30 sponsor-sticker p-1.5 cursor-pointer flex flex-col items-center select-none"
+            title="Patrocinador Oficial: Maria Lanches"
+          >
+            <img 
+              src="/marialanches.png" 
+              alt="Maria Lanches" 
+              className="w-16 h-16 md:w-24 md:h-24 object-contain rounded-lg shadow-inner"
+            />
+            <span className="text-[9px] md:text-[10px] font-black text-slate-950 uppercase tracking-tighter mt-1 bg-amber-400 px-1.5 py-0.5 rounded border border-amber-600 shadow-sm">
+              PATROCINADOR
+            </span>
+          </div>
+
           {/* VIRA E MANILHA DE BOTECO */}
           <div className="flex items-center gap-3 bg-slate-950/80 p-2.5 rounded-2xl border border-amber-500/40 shadow-2xl z-10 mb-2">
             <div className="flex flex-col items-center">
@@ -265,7 +281,7 @@ export default function App() {
               })
             ) : (
               <div className="text-amber-200/60 text-xs font-mono font-bold uppercase tracking-widest bg-slate-950/40 border border-dashed border-amber-500/30 px-5 py-6 rounded-2xl">
-                Mesa Limpa • Barta a carta!
+                Mesa Limpa • Bate a carta!
               </div>
             )}
           </div>
@@ -282,7 +298,7 @@ export default function App() {
           <div className="absolute -bottom-4 -left-4 w-14 h-14 rounded-full beer-coaster opacity-40 hidden sm:flex items-center justify-center text-xs text-amber-900 font-bold rotate-12">
             CHOPP
           </div>
-          <div className="absolute -top-4 -right-4 w-14 h-14 rounded-full beer-coaster opacity-40 hidden sm:flex items-center justify-center text-xs text-amber-900 font-bold -rotate-12">
+          <div className="absolute -bottom-4 -right-4 w-14 h-14 rounded-full beer-coaster opacity-40 hidden sm:flex items-center justify-center text-xs text-amber-900 font-bold -rotate-12">
             TRUCO
           </div>
         </div>

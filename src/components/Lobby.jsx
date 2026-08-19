@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, PlusCircle, LogIn, Users, ShieldCheck, Copy, Check } from 'lucide-react';
+import { Play, PlusCircle, LogIn, Users, Copy, Check } from 'lucide-react';
 
 export default function Lobby({ onCreateRoom, onJoinRoom, onStartGame, roomState, currentPlayer }) {
   const [name, setName] = useState(currentPlayer?.name || '');
@@ -18,27 +18,26 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onStartGame, roomState
   };
 
   if (roomState) {
-    // Tela de Espera na Sala
     return (
       <div className="flex flex-col items-center justify-center min-h-[80vh] p-4">
-        <div className="bg-slate-900 border border-emerald-800/80 rounded-2xl p-6 md:p-8 max-w-lg w-full shadow-2xl text-center space-y-6">
+        <div className="bg-slate-900/95 border-2 border-amber-600 rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl text-center space-y-6">
           <div className="space-y-2">
             <h2 className="text-2xl font-black text-slate-100 flex items-center justify-center gap-2">
-              <Users className="w-6 h-6 text-emerald-400" />
-              SALA DE ESPERA
+              <Users className="w-6 h-6 text-amber-400" />
+              MESA DE ESPERA DO BOTECO
             </h2>
-            <p className="text-slate-400 text-sm">Compartilhe o código abaixo com seu adversário/parceiro</p>
+            <p className="text-slate-400 text-sm">Compartilhe o código abaixo para reunir a mesa</p>
           </div>
 
           {/* Código da Sala */}
-          <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
+          <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
             <div className="text-left">
-              <div className="text-xs text-slate-500 font-bold uppercase">Código da Sala</div>
+              <div className="text-xs text-slate-500 font-bold uppercase">Código da Mesa</div>
               <div className="font-mono text-3xl font-black text-amber-400 tracking-widest">{roomState.roomId}</div>
             </div>
             <button
               onClick={handleCopyCode}
-              className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold transition-all"
+              className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-semibold transition-all"
             >
               {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
               {copied ? 'Copiado!' : 'Copiar'}
@@ -48,7 +47,7 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onStartGame, roomState
           {/* Lista de Jogadores */}
           <div className="space-y-3">
             <div className="flex items-center justify-between text-xs font-bold text-slate-400 uppercase tracking-wider">
-              <span>Jogadores na Sala ({roomState.players.length}/{roomState.maxPlayers})</span>
+              <span>Jogadores na Mesa ({roomState.players.length}/{roomState.maxPlayers})</span>
               <span>Time</span>
             </div>
 
@@ -91,14 +90,14 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onStartGame, roomState
             <button
               onClick={onStartGame}
               disabled={roomState.players.length < 2}
-              className={`w-full py-4 px-6 rounded-xl font-black text-lg flex items-center justify-center gap-2 transition-all shadow-xl ${
+              className={`w-full py-4 px-6 rounded-2xl font-black text-lg flex items-center justify-center gap-2 transition-all shadow-xl ${
                 roomState.players.length >= 2
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 shadow-emerald-900/50 cursor-pointer active:scale-95'
+                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:brightness-110 text-slate-950 shadow-amber-950/50 cursor-pointer active:scale-95'
                   : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
               }`}
             >
               <Play className="w-5 h-5 fill-slate-950" />
-              {roomState.players.length >= 2 ? 'INICIAR PARTIDA DE TRUCO' : 'AGUARDANDO MAIS JOGADORES...'}
+              {roomState.players.length >= 2 ? 'INICIAR PARTIDA NO BOTECO' : 'AGUARDANDO MAIS JOGADORES...'}
             </button>
           ) : (
             <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl text-slate-400 text-sm flex items-center justify-center gap-2">
@@ -106,6 +105,14 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onStartGame, roomState
               Aguardando o Host iniciar a partida...
             </div>
           )}
+
+          {/* Patrocinador Oficial */}
+          <div className="pt-3 flex items-center justify-center gap-2 text-xs text-slate-400 border-t border-slate-800/80">
+            <span>Patrocinador Oficial:</span>
+            <img src="/marialanches.png" alt="Maria Lanches" className="h-6 object-contain rounded bg-white p-0.5 shadow" />
+            <span className="font-bold text-amber-400">Maria Lanches</span>
+          </div>
+
         </div>
       </div>
     );
@@ -113,15 +120,15 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onStartGame, roomState
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[85vh] p-4">
-      <div className="bg-slate-900 border border-emerald-900/60 rounded-3xl p-6 md:p-10 max-w-md w-full shadow-2xl space-y-8 backdrop-blur-md">
+      <div className="bg-slate-900/95 border-2 border-amber-700/80 rounded-3xl p-6 md:p-10 max-w-md w-full shadow-2xl space-y-7 backdrop-blur-md">
         
         {/* Título */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2 bg-emerald-950 border border-emerald-700/50 text-emerald-400 px-4 py-1.5 rounded-full font-bold text-xs tracking-widest uppercase">
-            ♠ ♥ ♣ ♦ Truco Online
+          <div className="inline-flex items-center gap-2 bg-slate-950 border border-amber-500/40 text-amber-400 px-4 py-1.5 rounded-full font-bold text-xs tracking-widest uppercase">
+            🍺 BOTECO DO TRUCO 🍺
           </div>
-          <h1 className="text-4xl font-black tracking-tight text-white">TRUCO WEB</h1>
-          <p className="text-slate-400 text-sm">Crie uma sala ou entre pelo código curto</p>
+          <h1 className="text-4xl font-black tracking-tight text-white">TRUCO ONLINE</h1>
+          <p className="text-slate-400 text-sm">Crie uma mesa redonda ou entre pelo código curto</p>
         </div>
 
         {/* Input de Nome */}
@@ -133,7 +140,7 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onStartGame, roomState
             onChange={(e) => setName(e.target.value)}
             placeholder="Digite seu nome..."
             maxLength={16}
-            className="w-full bg-slate-950 border border-slate-700 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-xl px-4 py-3 text-white font-semibold outline-none transition-all placeholder:text-slate-600"
+            className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-2xl px-4 py-3.5 text-white font-semibold outline-none transition-all placeholder:text-slate-600"
           />
         </div>
 
@@ -145,7 +152,7 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onStartGame, roomState
               <button
                 onClick={() => setMaxPlayers(2)}
                 className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                  maxPlayers === 2 ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400'
+                  maxPlayers === 2 ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-400'
                 }`}
               >
                 1v1 (2 Jogadores)
@@ -153,7 +160,7 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onStartGame, roomState
               <button
                 onClick={() => setMaxPlayers(4)}
                 className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                  maxPlayers === 4 ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400'
+                  maxPlayers === 4 ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-400'
                 }`}
               >
                 2v2 (4 Jogadores)
@@ -164,20 +171,20 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onStartGame, roomState
           <button
             onClick={() => name.trim() && onCreateRoom(name, maxPlayers)}
             disabled={!name.trim()}
-            className={`w-full py-3.5 px-6 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all shadow-lg ${
+            className={`w-full py-3.5 px-6 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all shadow-lg ${
               name.trim()
-                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/60 active:scale-95 cursor-pointer'
+                ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-950/60 active:scale-95 cursor-pointer'
                 : 'bg-slate-800 text-slate-500 cursor-not-allowed'
             }`}
           >
             <PlusCircle className="w-5 h-5" />
-            CRIAR NOVA SALA
+            CRIAR NOVA MESA
           </button>
         </div>
 
         {/* Entrar em Sala Existente */}
         <div className="space-y-3 pt-2 border-t border-slate-800">
-          <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">Entrar em Sala Existente</label>
+          <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">Entrar em Mesa Existente</label>
           <div className="flex gap-2">
             <input
               type="text"
@@ -185,14 +192,14 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onStartGame, roomState
               onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
               placeholder="CÓDIGO (ex: TRUCO1)"
               maxLength={6}
-              className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-xl px-4 py-3 text-white font-mono font-bold tracking-widest outline-none transition-all placeholder:text-slate-600 placeholder:font-sans placeholder:tracking-normal"
+              className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-2xl px-4 py-3 text-white font-mono font-bold tracking-widest outline-none transition-all placeholder:text-slate-600 placeholder:font-sans placeholder:tracking-normal"
             />
             <button
               onClick={() => name.trim() && roomCode.trim() && onJoinRoom(roomCode, name)}
               disabled={!name.trim() || !roomCode.trim()}
-              className={`px-6 rounded-xl font-bold text-sm flex items-center gap-2 transition-all shrink-0 ${
+              className={`px-6 rounded-2xl font-bold text-sm flex items-center gap-2 transition-all shrink-0 ${
                 name.trim() && roomCode.trim()
-                  ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 active:scale-95 cursor-pointer'
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white active:scale-95 cursor-pointer'
                   : 'bg-slate-800 text-slate-500 cursor-not-allowed'
               }`}
             >
@@ -200,6 +207,13 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onStartGame, roomState
               ENTRAR
             </button>
           </div>
+        </div>
+
+        {/* Patrocinador Oficial */}
+        <div className="pt-3 flex items-center justify-center gap-2 text-xs text-slate-400 border-t border-slate-800">
+          <span>Patrocinador Oficial:</span>
+          <img src="/marialanches.png" alt="Maria Lanches" className="h-6 object-contain rounded bg-white p-0.5 shadow" />
+          <span className="font-bold text-amber-400">Maria Lanches</span>
         </div>
 
       </div>
